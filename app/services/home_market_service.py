@@ -29,8 +29,80 @@ _QUOTE_CACHE_TS = 0.0
 _QUOTE_LOCK = Lock()
 _ASSET_LOCK = Lock()
 
+def _fetch_quote_yfinance(ticker: str) -> dict[str, Any] | None:
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).fast_info
+        current = float(info.get("lastPrice") or 0.0)
+        previous_close = float(info.get("previousClose") or 0.0)
+    except Exception as exc:
+        print(f"[yfinance] Quote fetch failed for {ticker}: {exc}")
+        return None
+    if current <= 0:
+        print(f"[yfinance] No valid price for {ticker} (got {current})")
+        return None
+    change = current - previous_close if previous_close else None
+    change_pct = (
+        (change / previous_close) * 100 if change is not None and previous_close else None
+    )
+    return {
+        "current": current,
+        "change": change,
+        "change_percent": change_pct,
+        "previous_close": previous_close or None,
+        "open": None,
+        "high": None,
+        "low": None,
+        "timestamp": None,
+        "updated_at": _utc_now_iso(),
+        "source": "Yahoo Finance",
+    }
+
+def _load_or_refresh_quotes(tickers: list[str], api_key: str) -> dict[str, dict[str, Any]]:
+    global _QUOTE_CACHE_TS
+    now = time.monotonic()
+    with _QUOTE_LOCK:
+        if _QUOTE_CACHE and now - _QUOTE_CACHE_TS < QUOTE_TTL_SECONDS:
+            return dict(_QUOTE_CACHE)
+        refreshed: dict[str, dict[str, Any]] = {}
+        for ticker in tickers:
+            if ticker.upper().endswith(".NS"):
+                quote = _fetch_quote_yfinance(ticker)
+            else:
+                quote = _fetch_quote(ticker, api_key)
+            if quote is not None:
+                refreshed[ticker] = quote
+        _QUOTE_CACHE.clear()
+        _QUOTE_CACHE.update(refreshed)
+        _QUOTE_CACHE_TS = now
+        return dict(_QUOTE_CACHE)
+
+
+_NIFTY50_DOMAINS = {
+    "RELIANCE.NS": "ril.com",
+    "TCS.NS": "tcs.com",
+    "HDFCBANK.NS": "hdfcbank.com",
+    "ICICIBANK.NS": "icicibank.com",
+    "INFY.NS": "infosys.com",
+    "BHARTIARTL.NS": "airtel.in",
+    "SBIN.NS": "sbi.co.in",
+    "LICI.NS": "licindia.in",
+    "ITC.NS": "itcportal.com",
+    "HINDUNILVR.NS": "hul.co.in",
+    "LT.NS": "larsentoubro.com",
+    "BAJFINANCE.NS": "bajajfinserv.in",
+    "MARUTI.NS": "marutisuzuki.com",
+    "HCLTECH.NS": "hcltech.com",
+    "SUNPHARMA.NS": "sunpharma.com",
+    "KOTAKBANK.NS": "kotak.com",
+    "TITAN.NS": "titancompany.in",
+    "ADANIENT.NS": "adanienterprises.com",
+    "ONGC.NS": "ongcindia.com",
+    "NTPC.NS": "ntpc.co.in",
+}
 
 def get_home_market_cards(companies: list[Company]) -> dict[str, Any]:
+    print(f"[debug] get_home_market_cards called with {len(companies)} companies: {[c.ticker for c in companies]}")
     """
     Return optional home-card enrichment.
 
@@ -40,6 +112,7 @@ def get_home_market_cards(companies: list[Company]) -> dict[str, Any]:
     """
     tickers = [company.ticker for company in companies]
     settings = get_settings()
+    print(f"[debug] finnhub_api_key present: {bool(settings.finnhub_api_key)}")
     if not settings.finnhub_api_key:
         return {
             "ok": True,
@@ -48,6 +121,8 @@ def get_home_market_cards(companies: list[Company]) -> dict[str, Any]:
             "asset_ttl_seconds": ASSET_TTL_SECONDS,
             "cards": [_empty_card(company) for company in companies],
         }
+
+
 
     assets = _load_or_refresh_assets(companies, settings.finnhub_api_key)
     quotes = _load_or_refresh_quotes(tickers, settings.finnhub_api_key)
@@ -78,23 +153,13 @@ def _empty_card(company: Company) -> dict[str, Any]:
     }
 
 
-def _load_or_refresh_quotes(tickers: list[str], api_key: str) -> dict[str, dict[str, Any]]:
-    global _QUOTE_CACHE_TS
-
-    now = time.monotonic()
-    with _QUOTE_LOCK:
-        if _QUOTE_CACHE and now - _QUOTE_CACHE_TS < QUOTE_TTL_SECONDS:
-            return dict(_QUOTE_CACHE)
-
-        refreshed: dict[str, dict[str, Any]] = {}
-        for ticker in tickers:
-            quote = _fetch_quote(ticker, api_key)
-            if quote is not None:
-                refreshed[ticker] = quote
-        _QUOTE_CACHE.clear()
-        _QUOTE_CACHE.update(refreshed)
-        _QUOTE_CACHE_TS = now
-        return dict(_QUOTE_CACHE)
+def _fetch_logo_clearbit(ticker: str) -> str | None:
+    domain = _NIFTY50_DOMAINS.get(ticker.upper())
+    if not domain:
+        print(f"[logo.dev] No domain mapped for {ticker}")
+        return None
+    print(f"[logo.dev] Using domain {domain} for {ticker}")
+    return f"https://img.logo.dev/{domain}?token=pk_KqGSUawnSfqIdUwaJoCHhA"
 
 
 def _load_or_refresh_assets(companies: list[Company], api_key: str) -> dict[str, dict[str, Any]]:
@@ -102,11 +167,21 @@ def _load_or_refresh_assets(companies: list[Company], api_key: str) -> dict[str,
         cached = _read_asset_cache()
         changed = False
         now_epoch = time.time()
-
         for company in companies:
             ticker = company.ticker
             cached_item = cached.get(ticker)
             if _asset_is_fresh(cached_item, now_epoch):
+                continue
+            if ticker.upper().endswith(".NS"):
+                logo_url = _fetch_logo_clearbit(ticker)
+                domain = _NIFTY50_DOMAINS.get(ticker.upper())
+                cached[ticker] = {
+                    "logo_url": logo_url or "",
+                    "weburl": f"https://{domain}" if domain else "",
+                    "source": "Clearbit" if logo_url else None,
+                    "updated_at": _utc_now_iso(),
+                }
+                changed = True
                 continue
             profile = _fetch_profile(ticker, api_key)
             cached[ticker] = {
@@ -116,7 +191,6 @@ def _load_or_refresh_assets(companies: list[Company], api_key: str) -> dict[str,
                 "updated_at": _utc_now_iso(),
             }
             changed = True
-
         if changed:
             _write_asset_cache(cached)
         return {
@@ -239,3 +313,4 @@ def _iso_from_epoch(value: int) -> str:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+

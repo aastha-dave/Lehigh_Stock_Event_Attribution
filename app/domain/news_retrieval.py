@@ -276,6 +276,55 @@ def _fetch_finnhub_items(
         scope_key=scope_key or ticker,
     )
 
+def _fetch_marketaux_items(
+    ticker: str,
+    date_from: str,
+    date_to: str,
+    marketaux_key: str,
+    *,
+    scope_tag: str = "company",
+    scope_key: str | None = None,
+) -> list[dict]:
+    url = "https://api.marketaux.com/v1/news/all"
+    symbol = ticker.replace(".NS", "")
+    params = {
+        "symbols": symbol,
+        "published_after": date_from,
+        "published_before": date_to,
+        "language": "en",
+        "api_token": marketaux_key,
+    }
+
+    try:
+        r = requests.get(url, params=params, timeout=20)
+        r.raise_for_status()
+        payload = r.json()
+    except Exception as e:
+        print(f"[Marketaux] Request failed for {ticker}: {e}")
+        return []
+
+    items = payload.get("data") if isinstance(payload, dict) else []
+    out: list[dict] = []
+    for item in items or []:
+        headline = (item.get("title") or "").strip()
+        summary = (item.get("description") or item.get("snippet") or "").strip()
+        if not headline and not summary:
+            continue
+        out.append(
+            {
+                "tickers": ticker,
+                "api_source": "Marketaux",
+                "publisher": item.get("source"),
+                "headline": headline,
+                "summary": summary,
+                "url": (item.get("url") or "").strip(),
+                "published_at": _safe_parse_published_date(item.get("published_at")),
+                "external_id": item.get("uuid"),
+                "scope_tag": scope_tag,
+                "scope_key": scope_key or ticker,
+            }
+        )
+    return out
 
 def _fetch_finnhub_market_news_items(
     *,

@@ -37,6 +37,51 @@
 
     <hr class="rt-divider">
 
+    {% macro company_card(company) %}
+    <a
+        href="{{ url_for('routes.company_detail', ticker=company.ticker) }}"
+        class="rt-card rt-card--hover"
+        data-ticker="{{ company.ticker }}"
+        data-company-name="{{ company.name }}"
+        style="display: block; color: inherit; text-decoration: none;"
+    >
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div
+                data-logo-fallback
+                class="rt-mono"
+                style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: var(--rt-r-sm); border: 1px solid var(--rt-border); background: var(--rt-surface-2); display: flex; align-items: center; justify-content: center; color: var(--rt-text-muted); font-size: 11px; font-weight: 700; overflow: hidden;"
+            >
+                {{ company.ticker[:2] }}
+            </div>
+            <img
+                data-logo-img
+                alt="{{ company.name }} logo"
+                style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: var(--rt-r-sm); border: 1px solid var(--rt-border); background: var(--rt-surface-2); object-fit: contain; padding: 5px; display: none;"
+            />
+            <div style="min-width: 0; flex: 1;">
+                <div class="rt-flex-between" style="align-items: flex-start; gap: 10px;">
+                    <div style="min-width: 0;">
+                        <div style="font-size: 14px; font-weight: 600; color: var(--rt-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ company.name }}
+                        </div>
+                        {% if company.gics_sector %}
+                        <div class="rt-caption" style="margin-top: 3px;">{{ company.gics_sector }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="rt-mono" style="font-size: 12px; font-weight: 600; color: var(--rt-text-muted); padding: 3px 8px; border: 1px solid var(--rt-border); border-radius: var(--rt-r-sm); background: var(--rt-surface-2);">
+                        {{ company.ticker }}
+                    </div>
+                </div>
+                <div style="margin-top: 12px; min-height: 21px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+                    <span data-price class="rt-mono" style="font-size: 15px; font-weight: 700; color: var(--rt-text);"></span>
+                    <span data-change class="rt-mono" style="font-size: 12px; font-weight: 600;"></span>
+                </div>
+                <div data-updated class="rt-caption" style="margin-top: 4px;"></div>
+            </div>
+        </div>
+    </a>
+    {% endmacro %}
+
     <section>
         <div class="rt-flex-between" style="margin-bottom: 16px;">
             <div>
@@ -44,51 +89,25 @@
                 <div class="rt-caption">Ranked by market capitalization</div>
             </div>
         </div>
-
         <div class="rt-grid-auto">
-            {% for company in companies %}
-            <a
-                href="{{ url_for('routes.company_detail', ticker=company.ticker) }}"
-                class="rt-card rt-card--hover"
-                data-ticker="{{ company.ticker }}"
-                data-company-name="{{ company.name }}"
-                style="display: block; color: inherit; text-decoration: none;"
-            >
-                <div style="display: flex; gap: 12px; align-items: flex-start;">
-                    <div
-                        data-logo-fallback
-                        class="rt-mono"
-                        style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: var(--rt-r-sm); border: 1px solid var(--rt-border); background: var(--rt-surface-2); display: flex; align-items: center; justify-content: center; color: var(--rt-text-muted); font-size: 11px; font-weight: 700; overflow: hidden;"
-                    >
-                        {{ company.ticker[:2] }}
-                    </div>
-                    <img
-                        data-logo-img
-                        alt="{{ company.name }} logo"
-                        style="width: 36px; height: 36px; flex: 0 0 36px; border-radius: var(--rt-r-sm); border: 1px solid var(--rt-border); background: var(--rt-surface-2); object-fit: contain; padding: 5px; display: none;"
-                    />
-                    <div style="min-width: 0; flex: 1;">
-                        <div class="rt-flex-between" style="align-items: flex-start; gap: 10px;">
-                            <div style="min-width: 0;">
-                                <div style="font-size: 14px; font-weight: 600; color: var(--rt-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    {{ company.name }}
-                                </div>
-                                {% if company.gics_sector %}
-                                <div class="rt-caption" style="margin-top: 3px;">{{ company.gics_sector }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="rt-mono" style="font-size: 12px; font-weight: 600; color: var(--rt-text-muted); padding: 3px 8px; border: 1px solid var(--rt-border); border-radius: var(--rt-r-sm); background: var(--rt-surface-2);">
-                                {{ company.ticker }}
-                            </div>
-                        </div>
-                        <div style="margin-top: 12px; min-height: 21px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
-                            <span data-price class="rt-mono" style="font-size: 15px; font-weight: 700; color: var(--rt-text);"></span>
-                            <span data-change class="rt-mono" style="font-size: 12px; font-weight: 600;"></span>
-                        </div>
-                        <div data-updated class="rt-caption" style="margin-top: 4px;"></div>
-                    </div>
-                </div>
-            </a>
+            {% for company in sp500_companies %}
+                {{ company_card(company) }}
+            {% endfor %}
+        </div>
+    </section>
+
+    <hr class="rt-divider">
+
+    <section>
+        <div class="rt-flex-between" style="margin-bottom: 16px;">
+            <div>
+                <div class="rt-section-title">Markets · Top 20 NIFTY 50</div>
+                <div class="rt-caption">Ranked by market capitalization</div>
+            </div>
+        </div>
+        <div class="rt-grid-auto">  
+            {% for company in nifty50_companies %}
+                {{ company_card(company) }}
             {% endfor %}
         </div>
     </section>
@@ -165,10 +184,11 @@ async function fetchResults(query) {
     renderDropdown(currentResults);
 }
 
-function formatPrice(value) {
+function formatPrice(value, ticker) {
     const n = Number(value);
     if (!Number.isFinite(n) || n <= 0) return '';
-    return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const symbol = (ticker || '').toUpperCase().endsWith('.NS') ? '₹' : '$';
+    return `${symbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatChange(value, pct) {
@@ -215,7 +235,7 @@ function renderMarketCards(cards) {
         const priceEl = card.querySelector('[data-price]');
         const changeEl = card.querySelector('[data-change]');
         const updatedEl = card.querySelector('[data-updated]');
-        const priceText = formatPrice(quote.current);
+        const priceText = formatPrice(quote.current, item.ticker);
         const changeText = formatChange(quote.change, quote.change_percent);
         if (priceEl) priceEl.textContent = priceText;
         if (changeEl) {

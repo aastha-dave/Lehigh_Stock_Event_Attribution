@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import math
 from threading import Lock
 import time
 
@@ -37,12 +38,42 @@ _price_history_cache: dict[tuple[str, int | str], tuple[float, list[PriceRow]]] 
 _price_history_lock = Lock()
 
 
+_SP500_TOP20 = [
+    "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "AVGO", "META", "TSLA", "BRK-B",
+    "WMT", "LLY", "JPM", "V", "ORCL", "XOM", "JNJ", "MA", "COST", "PLTR",
+]
+
+_NIFTY50_TOP20 = [
+    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "ICICIBANK.NS", "INFY.NS",
+    "BHARTIARTL.NS", "SBIN.NS", "LICI.NS", "ITC.NS", "HINDUNILVR.NS",
+    "LT.NS", "BAJFINANCE.NS", "MARUTI.NS", "HCLTECH.NS", "SUNPHARMA.NS",
+    "KOTAKBANK.NS", "TITAN.NS", "ADANIENT.NS", "ONGC.NS", "NTPC.NS",
+]
+
+
+def _ordered_companies_for_tickers(tickers: list[str]) -> list[Company]:
+    rows = Company.query.filter(Company.ticker.in_(tickers)).all()
+    by_ticker = {c.ticker: c for c in rows}
+    ordered = []
+    for ticker in tickers:
+        company = by_ticker.get(ticker)
+        if company is not None:
+            ordered.append(company)
+    return ordered
+
+
 def get_home_companies():
-    # Pinned SP500 top-20 by market cap snapshot; update list as needed.
-    top20 = [
-        "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "AVGO", "META", "TSLA", "BRK-B",
-        "WMT", "LLY", "JPM", "V", "ORCL", "XOM", "JNJ", "MA", "COST", "PLTR",
-    ]
+    """Kept for backward compatibility with any existing callers —
+    returns the combined flat list (SP500 + NIFTY50)."""
+    return _ordered_companies_for_tickers(_SP500_TOP20 + _NIFTY50_TOP20)
+
+
+def get_home_companies_by_section() -> dict[str, list[Company]]:
+    """Returns companies grouped by market, for sectioned homepage display."""
+    return {
+        "sp500": _ordered_companies_for_tickers(_SP500_TOP20),
+        "nifty50": _ordered_companies_for_tickers(_NIFTY50_TOP20),
+    }
 
     rows = Company.query.filter(Company.ticker.in_(top20)).all()
     by_ticker = {c.ticker: c for c in rows}
@@ -108,20 +139,27 @@ def get_company_prices(company: Company, lookback_days: int | None = 365) -> lis
     if hist.empty:
         return []
 
+
+    def _clean(value) -> float:
+        try:
+            f = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return 0.0 if math.isnan(f) else f
+
     rows: list[PriceRow] = []
     for ts, row in hist.iterrows():
         d = ts.date() if hasattr(ts, "date") else ts
         rows.append(PriceRow(
             date=d,
-            open=float(row.get("Open") or 0.0),
-            high=float(row.get("High") or 0.0),
-            low=float(row.get("Low") or 0.0),
-            close=float(row.get("Close") or 0.0),
+            open=_clean(row.get("Open")),
+            high=_clean(row.get("High")),
+            low=_clean(row.get("Low")),
+            close=_clean(row.get("Close")),
         ))
 
     with _price_history_lock:
         _price_history_cache[cache_key] = (now, list(rows))
-
     return rows
 
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+import traceback
 
 from app.domain.episode_pipeline import (
     run_episode_pipeline as _run_episode_pipeline,
@@ -44,8 +45,12 @@ def run_batch_episode_pipeline(
 
     for ep in episodes:
         try:
-            out = _run_episode_pipeline(episode=ep, force_recompute=force_recompute)
+            out = _run_episode_pipeline(
+                episode=ep,
+                force_recompute=force_recompute,
+            )
             decision = out.get("decision") or {}
+
             results.append(
                 {
                     "episode_id": ep.id,
@@ -58,7 +63,12 @@ def run_batch_episode_pipeline(
                 }
             )
             success += 1
+
         except Exception as exc:  # noqa: BLE001
+            print("\n========== FULL TRACEBACK ==========\n")
+            traceback.print_exc()
+            print("\n====================================\n")
+
             results.append(
                 {
                     "episode_id": ep.id,

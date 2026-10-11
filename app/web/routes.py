@@ -15,6 +15,7 @@ from app.domain.branch_analysis import build_multi_branch_analysis_plan
 from app.services.company_service import (
     PRICE_HISTORY_CACHE_TTL_SECONDS,
     get_home_companies,
+    get_home_companies_by_section,
     get_company_by_ticker,
     get_company_prices,
     get_episode_for_company,
@@ -65,8 +66,12 @@ def _repo_root() -> Path:
 
 @bp.route("/")
 def home():
-    companies = get_home_companies()
-    return render_template("home.html", companies=companies)
+    sections = get_home_companies_by_section()
+    return render_template(
+        "home.html",
+        sp500_companies=sections["sp500"],
+        nifty50_companies=sections["nifty50"],
+    )
 
 
 def _load_release_verification_file(path: Path, *, artifact_source: str) -> dict:
@@ -353,25 +358,40 @@ def api_home_market_cards():
 @bp.route("/company/<ticker>/episode/<int:episode_id>")
 def episode_analysis(ticker, episode_id):
     """AI Explanation view (DEC-203 default)."""
+
     company = get_company_by_ticker(ticker)
     if company is None:
         abort(404)
 
     episode = get_episode_for_company(company, episode_id)
+
+    print("Episode:", episode)
+    print("Company ID:", company.id)
+
+    if episode:
+        print("Episode company_id:", episode.company_id)
+        print("Attributable:", episode_is_attributable(episode))
+
     if episode is None:
         abort(404)
+
     if not episode_is_attributable(episode):
         abort(404)
 
-    # Always run the V2 pipeline first (cached) to populate the shared
-    # quantitative half (§1 Hero, §2 Snapshot, §3 LEFT, §4 card framework).
-    pipeline_result = run_episode_pipeline(episode, force_recompute=False)
-    episode_metrics = _safe_episode_metrics(company.id, episode)
-    branch_plan = _build_branch_plan_from_result(pipeline_result)
+    pipeline_result = run_episode_pipeline(
+        episode,
+        force_recompute=False,
+    )
 
-    # AI Explanation: cache-only on page render (do not auto-trigger paid
-    # API calls during route handling). If absent, the template surfaces
-    # an empty state + a "Generate AI Explanation" CTA → /loading.
+    episode_metrics = _safe_episode_metrics(
+        company.id,
+        episode,
+    )
+
+    branch_plan = _build_branch_plan_from_result(
+        pipeline_result,
+    )
+
     ai_payload = get_cached_ai_explanation(episode_id)
 
     return render_template(

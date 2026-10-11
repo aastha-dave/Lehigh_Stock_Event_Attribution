@@ -19,6 +19,7 @@ from app.domain.news_retrieval import (
     _consume_provider_budget,
     _deduplicate_rows,
     _fetch_finnhub_items,
+    _fetch_marketaux_items,
     _fetch_finnhub_market_news_items,
     _fetch_google_rss_items,
     _fetch_google_rss_query_items,
@@ -63,6 +64,7 @@ class ProviderContext:
     quota_or_budget_hints: dict[str, int | None]
     stocknews_api_key: str | None = field(default=None, repr=False)
     finnhub_api_key: str | None = field(default=None, repr=False)
+    marketaux_api_key: str | None = field(default=None, repr=False)
     stocknews_base_url: str = field(
         default="https://stocknewsapi.com/api/v1",
         repr=False,
@@ -157,10 +159,15 @@ def build_provider_context(settings: Settings | None = None) -> ProviderContext:
             "ticker_news": bool(settings.enable_google_rss),
             "general_market_news": bool(settings.enable_google_rss),
         },
+        "Marketaux": {
+            "ticker_news": bool(settings.marketaux_api_key),
+            "general_market_news": bool(settings.marketaux_api_key),
+        }
     }
 
     budgets = _build_provider_budgets(settings)
     budgets.setdefault("GoogleRSS", None)
+    budgets.setdefault("Marketaux", None)
 
     return ProviderContext(
         enabled_providers=tuple(enabled),
@@ -170,6 +177,7 @@ def build_provider_context(settings: Settings | None = None) -> ProviderContext:
         finnhub_api_key=settings.finnhub_api_key,
         stocknews_base_url=settings.stocknews_base_url,
         enable_google_rss=settings.enable_google_rss,
+        marketaux_api_key=settings.marketaux_api_key,
     )
 
 
@@ -231,6 +239,18 @@ def fetch_candidate_articles(
         rows.extend(
             _fetch_google_scoped_rows(
                 episode_context=episode_context,
+            )
+        )
+
+    if (
+        "Marketaux" in provider_context.enabled_providers
+        and provider_context.marketaux_api_key
+        and _consume_provider_budget("Marketaux", budgets)
+    ):
+        rows.extend(
+            _fetch_marketaux_scoped_rows(
+                episode_context=episode_context,
+                provider_context=provider_context,
             )
         )
 

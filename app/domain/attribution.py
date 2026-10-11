@@ -18,7 +18,6 @@ DEFAULT_ESTIMATION_WINDOW = 756  # ~3 years of trading days (DEC-172)
 # Weights w_t = lambda^(T-1-t); most recent training day weight = 1.0.
 EWMA_DECAY_FACTOR = 0.97
 
-# SPDR Select Sector ETF mapping.
 SECTOR_TO_SPDR_PROXY = {
     "Information Technology": "XLK",
     "Communication Services": "XLC",
@@ -31,6 +30,21 @@ SECTOR_TO_SPDR_PROXY = {
     "Materials": "XLB",
     "Real Estate": "XLRE",
     "Utilities": "XLU",
+    # NIFTY 50 sector labels (exact spellings confirmed from the database)
+    "Oil Gas & Consumable Fuels": "XLE",
+    "Services": "XLI",
+    "Healthcare": "XLV",
+    "Consumer Durables": "XLY",
+    "Financial Services": "XLF",
+    "Automobile and Auto Components": "XLY",
+    "Capital Goods": "XLI",
+    "Telecommunication": "XLC",
+    "Consumer Services": "XLY",
+    "Construction Materials": "XLB",
+    "Metals & Mining": "XLB",
+    "Fast Moving Consumer Goods": "XLP",
+    "Construction": "XLI",
+    "Power": "XLU",
 }
 
 # GICS sub-industry ETF overrides (DEC-199).

@@ -12,15 +12,31 @@ def _ensure_startup_company_data() -> None:
 
     try:
         from app.services.sp500_ingestion import ensure_sp500_companies
+        from app.services.nifty50_ingestion import ensure_nifty50_companies
 
-        result = ensure_sp500_companies(verbose=True)
-        if not result.skipped:
+        sp500_result = ensure_sp500_companies(verbose=True)
+
+        if not sp500_result.skipped:
             print(
                 "[startup] S&P 500 company data ready "
-                f"(inserted={result.inserted}, updated={result.updated})."
+                f"(inserted={sp500_result.inserted}, "
+                f"updated={sp500_result.updated})."
             )
+
+        nifty_result = ensure_nifty50_companies(verbose=True)
+
+        if not nifty_result.skipped:
+            print(
+                "[startup] NIFTY 50 company data ready "
+                f"(inserted={nifty_result.inserted}, "
+                f"updated={nifty_result.updated})."
+            )
+
     except Exception as exc:  # noqa: BLE001
-        print(f"[startup] S&P 500 auto-ingest failed; server will still start: {exc}")
+        print(
+            f"[startup] Company auto-ingest failed; "
+            f"server will still start: {exc}"
+        )
 
 
 def create_app():

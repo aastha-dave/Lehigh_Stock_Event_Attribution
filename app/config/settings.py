@@ -44,9 +44,11 @@ class Settings:
     openai_api_key: str | None
     anthropic_api_key: str | None
     gemini_api_key: str | None
+    groq_api_key: str | None
     ai_provider: str
     ai_model: str | None
     secret_key: str | None
+    marketaux_api_key: str | None
     enable_signal_episode_v2: bool
     default_episode_horizon_n: int
     default_episode_threshold: float
@@ -98,6 +100,7 @@ def get_settings() -> Settings:
     return Settings(
         database_url=os.getenv("DATABASE_URL", "sqlite:///sa41.db"),
         finnhub_api_key=os.getenv("FINNHUB_API_KEY"),
+        marketaux_api_key=os.getenv("MARKETAUX_API_KEY"),
         stocknews_api_key=os.getenv("STOCKNEWS_API_KEY"),
         stocknews_base_url=os.getenv("STOCKNEWS_BASE_URL", "https://stocknewsapi.com/api/v1"),
         enable_google_rss=_env_bool("ENABLE_GOOGLE_RSS", True),
@@ -107,6 +110,7 @@ def get_settings() -> Settings:
         openai_api_key=os.getenv("OPENAI_API_KEY"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         gemini_api_key=os.getenv("GEMINI_API_KEY"),
+        groq_api_key=os.getenv("GROQ_API_KEY"),
         ai_provider=os.getenv("AI_PROVIDER", "openai").strip().lower(),
         ai_model=(os.getenv("AI_MODEL") or "").strip() or None,
         secret_key=os.getenv("SECRET_KEY"),

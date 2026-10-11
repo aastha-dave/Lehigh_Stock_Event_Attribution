@@ -7,9 +7,9 @@ from uuid import uuid4
 from app.domain.news_v2_01_retrieval import EpisodeContext
 from app.domain.news_v2_04_bundles import EvidenceBundle
 from app.infrastructure.llm import get_openai_client
+from app.infrastructure.llm import get_default_model
 
-
-DEFAULT_EXPLANATION_MODEL = "gpt-4.1-2025-04-14"
+DEFAULT_EXPLANATION_MODEL = get_default_model()
 
 
 @dataclass(frozen=True)
@@ -332,12 +332,12 @@ def _build_llm_enrichment_text(
         top_bundles=top_bundles,
         degraded_reason_codes=degraded_reason_codes,
     )
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=model_name,
-        input=prompt,
-        max_output_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500,
     )
-    text = (response.output_text or "").strip()
+    text = (response.choices[0].message.content or "").strip()
     return text or None
 
 

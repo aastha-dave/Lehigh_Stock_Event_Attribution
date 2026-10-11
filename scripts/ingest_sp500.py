@@ -13,10 +13,12 @@ def run(dry_run: bool = False) -> None:
 
     from app import create_app
     from app.services.sp500_ingestion import ingest_sp500_companies
+    from app.services.nifty50_ingestion import ingest_nifty50_companies
 
     app = create_app()
     with app.app_context():
         ingest_sp500_companies(dry_run=dry_run, only_if_empty=False, verbose=True)
+        ingest_nifty50_companies(dry_run=dry_run, only_if_empty=False, verbose=True)
 
 
 if __name__ == "__main__":

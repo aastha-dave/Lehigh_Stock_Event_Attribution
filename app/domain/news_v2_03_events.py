@@ -9,9 +9,9 @@ from uuid import uuid4
 
 from app.domain.news_v2_02_claims import ClaimRecord
 from app.infrastructure.llm import get_openai_client
+from app.infrastructure.llm import get_default_model
 
-
-DEFAULT_EVENT_MODEL = "gpt-4.1-2025-04-14"
+DEFAULT_EVENT_MODEL = get_default_model()
 ONTOLOGY_VERSION = "v0.1-minimal-finance"
 
 EVENT_TYPE_TO_FAMILY = {
@@ -306,12 +306,13 @@ def _normalize_claim_with_llm_fallback(
 ) -> EventRecord:
     prompt = _build_event_typing_prompt(claim=claim, rule_result=rule_result)
     client = get_openai_client()
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=model_name,
-        input=prompt,
-        max_output_tokens=1200,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1200,
+        response_format={"type": "json_object"},  # <-- added
     )
-    payload = _parse_event_payload(response.output_text)
+    payload = _parse_event_payload(response.choices[0].message.content)
     return _event_record_from_llm_payload(
         claim=claim,
         payload=payload,
@@ -357,6 +358,12 @@ Return JSON only with this exact shape:
   "fallback_reason": "string or null"
 }}
 
+Output rules:
+- Output must be a single JSON object and nothing else.
+- Do not include markdown code fences, explanations, or any text before or after the JSON object.
+- Do not repeat the JSON object.
+- The response must start with {{ and end with }}.
+
 Good canonical_label examples:
 - "M&A or Strategic Transaction"
 - "Guidance Update"
@@ -384,20 +391,21 @@ Claim:
 """.strip()
 
 
-def _parse_event_payload(text: str | None) -> dict[str, Any]:
-    if not text:
-        raise ValueError("Empty event-normalization response")
-
-    cleaned = text.strip()
+def _parse_event_payload(content: str) -> dict[str, Any]:
+    cleaned = content.strip()
+    # strip markdown code fences if present
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
-        if cleaned.startswith("json"):
-            cleaned = cleaned[4:].strip()
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
 
-    payload = json.loads(cleaned)
-    if not isinstance(payload, dict):
-        raise ValueError("Event-normalization payload must be a JSON object")
-    return payload
+    decoder = json.JSONDecoder()
+    try:
+        payload, _ = decoder.raw_decode(cleaned)
+        return payload
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Could not parse event payload as JSON: {content!r}") from e
 
 
 def _event_record_from_rule_result(

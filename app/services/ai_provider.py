@@ -105,7 +105,11 @@ def run_ai_provider(
 
 
 def _run_openai(prompt: str, model_name: str) -> AiProviderResult:
-    client = get_openai_client()
+    from openai import OpenAI
+    settings = get_settings()
+    if not settings.openai_api_key:
+        raise RuntimeError("OPENAI_API_KEY is required to use the OpenAI AI Explanation provider")
+    client = OpenAI(api_key=settings.openai_api_key)
     response = client.responses.create(
         model=model_name,
         input=prompt,
